@@ -122,31 +122,31 @@
 					android:text="@string/force_full_check"
 					android:layout_width="wrap_content"
 					android:layout_height="wrap_content"
-					/> 
+					/>
+
 				<RadioGroup
 					android:id="@+id/groupForceFullScreen"
-					android:orientation="horizontal"
 					android:layout_width="fill_parent"
 					android:layout_height="wrap_content"
-					>
+					android:orientation="vertical">
+
 					<RadioButton
 						android:id="@+id/radioForceFullScreenAuto"
-					    android:text="@string/auto"
-					    android:layout_width="wrap_content"
-					    android:layout_height="wrap_content"
-					/>
+						android:layout_width="wrap_content"
+						android:layout_height="wrap_content"
+						android:text="@string/auto" />
+
 					<RadioButton
 						android:id="@+id/radioForceFullScreenOn"
-					    android:text="@string/on"
-					    android:layout_width="wrap_content"
-					    android:layout_height="wrap_content"
-					/>
+						android:layout_width="wrap_content"
+						android:layout_height="wrap_content"
+						android:text="@string/on" />
+
 					<RadioButton
 						android:id="@+id/radioForceFullScreenOff"
-					    android:text="@string/off"
-					    android:layout_width="wrap_content"
-					    android:layout_height="wrap_content"
-					/>
+						android:layout_width="wrap_content"
+						android:layout_height="wrap_content"
+						android:text="@string/off" />
 				</RadioGroup>
 			</LinearLayout>
 			<LinearLayout android:orientation="horizontal"
