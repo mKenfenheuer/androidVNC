@@ -15,12 +15,17 @@ class FitToScreenScaling extends AbstractScaling {
 	 * @param scaleType
 	 */
 	FitToScreenScaling() {
-		super(R.id.itemFitToScreen, ScaleType.FIT_CENTER);
+		super(1, ScaleType.FIT_CENTER);
+	}
+
+	@Override
+	float getScale() {
+		return super.getScale();
 	}
 
 	/* (non-Javadoc)
-	 * @see android.androidVNC.AbstractScaling#isAbleToPan()
-	 */
+         * @see android.androidVNC.AbstractScaling#isAbleToPan()
+         */
 	@Override
 	boolean isAbleToPan() {
 		return false;

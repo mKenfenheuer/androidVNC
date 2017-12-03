@@ -60,453 +60,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 	/**
 	 * @author Michael A. MacDonald
 	 */
-	class ZoomInputHandler extends AbstractGestureInputHandler {
 
-		/**
-		 * In drag mode (entered with long press) you process mouse events
-		 * without sending them through the gesture detector
-		 */
-		private boolean dragMode;
-		
-		/**
-		 * Key handler delegate that handles DPad-based mouse motion
-		 */
-		private DPadMouseKeyHandler keyHandler;
-
-		/**
-		 * @param c
-		 */
-		ZoomInputHandler() {
-			super(VncCanvasActivity.this);
-			keyHandler = new DPadMouseKeyHandler(VncCanvasActivity.this,vncCanvas.handler);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getHandlerDescription()
-		 */
-		@Override
-		public CharSequence getHandlerDescription() {
-			return getResources().getString(
-					R.string.input_mode_touch_pan_zoom_mouse);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getName()
-		 */
-		@Override
-		public String getName() {
-			return TOUCH_ZOOM_MODE;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.VncCanvasActivity.ZoomInputHandler#onKeyDown(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyDown(int keyCode, KeyEvent evt) {
-			return keyHandler.onKeyDown(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.VncCanvasActivity.ZoomInputHandler#onKeyUp(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyUp(int keyCode, KeyEvent evt) {
-			return keyHandler.onKeyUp(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTrackballEvent(MotionEvent evt) {
-			return trackballMouse(evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onDown(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onDown(MotionEvent e) {
-			panner.stop();
-			return true;
-		}
-
-		/**
-		 * Divide stated fling velocity by this amount to get initial velocity
-		 * per pan interval
-		 */
-		static final float FLING_FACTOR = 8;
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onFling(android.view.MotionEvent,
-		 *      android.view.MotionEvent, float, float)
-		 */
-		@Override
-		public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
-				float velocityY) {
-			showZoomer(false);
-			panner.start(-(velocityX / FLING_FACTOR),
-					-(velocityY / FLING_FACTOR), new Panner.VelocityUpdater() {
-
-						/*
-						 * (non-Javadoc)
-						 * 
-						 * @see android.androidVNC.Panner.VelocityUpdater#updateVelocity(android.graphics.Point,
-						 *      long)
-						 */
-						@Override
-						public boolean updateVelocity(PointF p, long interval) {
-							double scale = Math.pow(0.8, interval / 50.0);
-							p.x *= scale;
-							p.y *= scale;
-							return (Math.abs(p.x) > 0.5 || Math.abs(p.y) > 0.5);
-						}
-
-					});
-			return true;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractGestureInputHandler#onTouchEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTouchEvent(MotionEvent e) {
-			if (dragMode) {
-				vncCanvas.changeTouchCoordinatesToFullFrame(e);
-				if (e.getAction() == MotionEvent.ACTION_UP)
-					dragMode = false;
-				return vncCanvas.processPointerEvent(e, true);
-			} else
-				return super.onTouchEvent(e);
-		}
-
-		@Override
-		public boolean onGenericMotion(MotionEvent evt) {
-			return false;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onLongPress(android.view.MotionEvent)
-		 */
-		@Override
-		public void onLongPress(MotionEvent e) {
-			showZoomer(true);
-			BCFactory.getInstance().getBCHaptic().performLongPressHaptic(
-					vncCanvas);
-			dragMode = true;
-			vncCanvas.processPointerEvent(vncCanvas
-					.changeTouchCoordinatesToFullFrame(e), true);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onScroll(android.view.MotionEvent,
-		 *      android.view.MotionEvent, float, float)
-		 */
-		@Override
-		public boolean onScroll(MotionEvent e1, MotionEvent e2,
-				float distanceX, float distanceY) {
-			if (inScaling)
-				return false;
-			showZoomer(false);
-			return vncCanvas.pan((int) distanceX, (int) distanceY);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onSingleTapConfirmed(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onSingleTapConfirmed(MotionEvent e) {
-			vncCanvas.changeTouchCoordinatesToFullFrame(e);
-			vncCanvas.processPointerEvent(e, true);
-			e.setAction(MotionEvent.ACTION_UP);
-			return vncCanvas.processPointerEvent(e, false);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onDoubleTap(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onDoubleTap(MotionEvent e) {
-			vncCanvas.changeTouchCoordinatesToFullFrame(e);
-			vncCanvas.processPointerEvent(e, true, true);
-			e.setAction(MotionEvent.ACTION_UP);
-			return vncCanvas.processPointerEvent(e, false, true);
-		}
-
-	}
-
-	public class TouchpadInputHandler extends AbstractGestureInputHandler {
-		/**
-		 * In drag mode (entered with long press) you process mouse events
-		 * without sending them through the gesture detector
-		 */
-		private boolean dragMode;
-		float dragX, dragY;
-		
-		/**
-		 * Key handler delegate that handles DPad-based mouse motion
-		 */
-		private DPadMouseKeyHandler keyHandler;
-
-		TouchpadInputHandler() {
-			super(VncCanvasActivity.this);
-			keyHandler = new DPadMouseKeyHandler(VncCanvasActivity.this,vncCanvas.handler); 
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getHandlerDescription()
-		 */
-		@Override
-		public CharSequence getHandlerDescription() {
-			return getResources().getString(
-					R.string.input_mode_touchpad);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getName()
-		 */
-		@Override
-		public String getName() {
-			return TOUCHPAD_MODE;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.VncCanvasActivity.ZoomInputHandler#onKeyDown(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyDown(int keyCode, KeyEvent evt) {
-			return keyHandler.onKeyDown(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.VncCanvasActivity.ZoomInputHandler#onKeyUp(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyUp(int keyCode, KeyEvent evt) {
-			return keyHandler.onKeyUp(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTrackballEvent(MotionEvent evt) {
-			return trackballMouse(evt);
-		}
-
-		/**
-		 * scale down delta when it is small. This will allow finer control
-		 * when user is making a small movement on touch screen.
-		 * Scale up delta when delta is big. This allows fast mouse movement when
-		 * user is flinging.
-		 * @param deltaX
-		 * @return
-		 */
-		private float fineCtrlScale(float delta) {
-			float sign = (delta>0) ? 1 : -1;
-			delta = Math.abs(delta);
-			if (delta>=1 && delta <=3) {
-				delta = 1;
-			}else if (delta <= 10) {
-				delta *= 0.34;
-			} else if (delta <= 30 ) {
-				delta *= delta/30;
-			} else if (delta <= 90) {
-				delta *=  (delta/30);
-			} else {
-				delta *= 3.0;
-			}
-			return sign * delta;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onLongPress(android.view.MotionEvent)
-		 */
-		@Override
-		public void onLongPress(MotionEvent e) {
-			
-			
-			showZoomer(true);
-			BCFactory.getInstance().getBCHaptic().performLongPressHaptic(
-					vncCanvas);
-			dragMode = true;
-			dragX = e.getX();
-			dragY = e.getY();
-			// send a mouse down event to the remote without moving the mouse.
-			remoteMouseStayPut(e);
-			vncCanvas.processPointerEvent(e, true);
-			
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onScroll(android.view.MotionEvent,
-		 *      android.view.MotionEvent, float, float)
-		 */
-		@Override
-		public boolean onScroll(MotionEvent e1, MotionEvent e2,
-				float distanceX, float distanceY) {
-			
-			if (BCFactory.getInstance().getBCMotionEvent().getPointerCount(e2) > 1)
-			{
-				if (inScaling)
-					return false;
-				showZoomer(false);
-				return vncCanvas.pan((int) distanceX, (int) distanceY);			
-			}
-			else
-			{
-				// compute the relative movement offset on the remote screen.
-				float deltaX = -distanceX *vncCanvas.getScale();
-				float deltaY = -distanceY *vncCanvas.getScale();
-				deltaX = fineCtrlScale(deltaX);
-				deltaY = fineCtrlScale(deltaY);
-	
-				// compute the absolution new mouse pos on the remote site.
-				float newRemoteX = vncCanvas.mouseX + deltaX;
-				float newRemoteY = vncCanvas.mouseY + deltaY;
-	
-	
-				if (dragMode) {
-					if (e2.getAction() == MotionEvent.ACTION_UP)
-						dragMode = false;
-					dragX = e2.getX();
-					dragY = e2.getY();
-					e2.setLocation(newRemoteX, newRemoteY);
-					return vncCanvas.processPointerEvent(e2, true);
-				} else {
-						e2.setLocation(newRemoteX, newRemoteY);
-						vncCanvas.processPointerEvent(e2, false);
-				}
-			}
-			return true;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractGestureInputHandler#onTouchEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTouchEvent(MotionEvent e) {
-			if (dragMode) {
-				// compute the relative movement offset on the remote screen.
-				float deltaX = (e.getX() - dragX) *vncCanvas.getScale();
-				float deltaY = (e.getY() - dragY) *vncCanvas.getScale();
-				dragX = e.getX();
-				dragY = e.getY();
-				deltaX = fineCtrlScale(deltaX);
-				deltaY = fineCtrlScale(deltaY);
-
-				// compute the absolution new mouse pos on the remote site.
-				float newRemoteX = vncCanvas.mouseX + deltaX;
-				float newRemoteY = vncCanvas.mouseY + deltaY;
-
-
-				if (e.getAction() == MotionEvent.ACTION_UP)
-					dragMode = false;
-				e.setLocation(newRemoteX, newRemoteY);
-				return vncCanvas.processPointerEvent(e, true);
-			} else
-				return super.onTouchEvent(e);
-		}
-
-		@Override
-		public boolean onGenericMotion(MotionEvent evt) {
-			return false;
-		}
-
-		/**
-		 * Modify the event so that it does not move the mouse on the
-		 * remote server.
-		 * @param e
-		 */
-		private void remoteMouseStayPut(MotionEvent e) {
-			e.setLocation(vncCanvas.mouseX, vncCanvas.mouseY);
-			
-		}
-		/*
-		 * (non-Javadoc)
-		 * confirmed single tap: do a single mouse click on remote without moving the mouse.
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onSingleTapConfirmed(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onSingleTapConfirmed(MotionEvent e) {
-			boolean multiTouch = (BCFactory.getInstance().getBCMotionEvent().getPointerCount(e) > 1);
-			remoteMouseStayPut(e);
-            
-			vncCanvas.processPointerEvent(e, true, multiTouch||vncCanvas.cameraButtonDown);
-			e.setAction(MotionEvent.ACTION_UP);
-			return vncCanvas.processPointerEvent(e, false, multiTouch||vncCanvas.cameraButtonDown);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * double tap: do two  left mouse right mouse clicks on remote without moving the mouse.
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onDoubleTap(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onDoubleTap(MotionEvent e) {
-			remoteMouseStayPut(e);
-			vncCanvas.processPointerEvent(e, true, true);
-			e.setAction(MotionEvent.ACTION_UP);
-			return vncCanvas.processPointerEvent(e, false, true);			
-		}
-		
-		
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.view.GestureDetector.SimpleOnGestureListener#onDown(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onDown(MotionEvent e) {
-			panner.stop();
-			return true;
-		}
-	}
-	
 	private final static String TAG = "VncCanvasActivity";
 
 	AbstractInputHandler inputHandler;
@@ -519,13 +73,10 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 	private AbstractInputHandler inputModeHandlers[];
 	private ConnectionBean connection;
 	private boolean trackballButtonDown;
-	private static final int inputModeIds[] = { R.id.itemInputFitToScreen,
-			R.id.itemInputTouchpad,
+	private static final int inputModeIds[] = {
+			R.id.itemInputFitToScreen,
 			R.id.itemInputMouse,
-			R.id.itemInputHardwareMouse,
-			R.id.itemInputPan,
-			R.id.itemInputTouchPanTrackballMouse,
-			R.id.itemInputDPadPanTouchMouse, R.id.itemInputTouchPanZoomMouse };
+			R.id.itemInputHardwareMouse,};
 
 	ZoomControls zoomer;
 	Panner panner;
@@ -592,7 +143,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			    connection.save(database.getWritableDatabase());
 			}
 		} else {
-		
+
 		    Bundle extras = i.getExtras();
 
 		    if (extras != null) {
@@ -629,7 +180,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 			/*
 			 * (non-Javadoc)
-			 * 
+			 *
 			 * @see android.view.View.OnClickListener#onClick(android.view.View)
 			 */
 			@Override
@@ -644,7 +195,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 			/*
 			 * (non-Javadoc)
-			 * 
+			 *
 			 * @see android.view.View.OnClickListener#onClick(android.view.View)
 			 */
 			@Override
@@ -659,7 +210,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 			/*
 			 * (non-Javadoc)
-			 * 
+			 *
 			 * @see android.view.View.OnClickListener#onClick(android.view.View)
 			 */
 			@Override
@@ -670,6 +221,9 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		});
 		panner = new Panner(this, vncCanvas.handler);
+
+		AbstractScaling.getById(1).setScaleTypeForActivity(
+				this);
 
 		inputHandler = getInputHandlerById(R.id.itemInputFitToScreen);
 	}
@@ -693,7 +247,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see android.app.Activity#onCreateDialog(int)
 	 */
 	@Override
@@ -708,7 +262,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see android.app.Activity#onPrepareDialog(int, android.app.Dialog)
 	 */
 	@Override
@@ -741,9 +295,6 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 	public boolean onCreateOptionsMenu(Menu menu) {
 		getMenuInflater().inflate(R.menu.vnccanvasactivitymenu, menu);
 
-		if (vncCanvas.scaling != null)
-			menu.findItem(vncCanvas.scaling.getId()).setChecked(true);
-
 		Menu inputMenu = menu.findItem(R.id.itemInputMode).getSubMenu();
 
 		inputModeMenuItems = new MenuItem[inputModeIds.length];
@@ -774,7 +325,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	/**
 	 * If id represents an input handler, return that; otherwise return null
-	 * 
+	 *
 	 * @param id
 	 * @return
 	 */
@@ -789,26 +340,11 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 					case R.id.itemInputFitToScreen:
 						inputModeHandlers[i] = new FitToScreenMode();
 						break;
-					case R.id.itemInputPan:
-						inputModeHandlers[i] = new PanMode();
-						break;
 					case R.id.itemInputMouse:
 						inputModeHandlers[i] = new MouseMode();
 						break;
 					case R.id.itemInputHardwareMouse:
 						inputModeHandlers[i] = new HardwareMouseMode();
-						break;
-					case R.id.itemInputTouchPanTrackballMouse:
-						inputModeHandlers[i] = new TouchPanTrackballMouse();
-						break;
-					case R.id.itemInputDPadPanTouchMouse:
-						inputModeHandlers[i] = new DPadPanTouchMouseMode();
-						break;
-					case R.id.itemInputTouchPanZoomMouse:
-						inputModeHandlers[i] = new ZoomInputHandler();
-						break;
-					case R.id.itemInputTouchpad:
-						inputModeHandlers[i] = new TouchpadInputHandler();
 						break;
 					}
 				}
@@ -828,17 +364,17 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			}
 		}
 		if (result == null) {
-			result = getInputHandlerById(R.id.itemInputTouchPanZoomMouse);
+			result = getInputHandlerById(R.id.itemInputFitToScreen);
 		}
 		return result;
 	}
-	
+
 	int getModeIdFromHandler(AbstractInputHandler handler) {
 		for (int id : inputModeIds) {
 			if (handler == getInputHandlerById(id))
 				return id;
 		}
-		return R.id.itemInputTouchPanZoomMouse;
+		return R.id.itemInputFitToScreen;
 	}
 
 	@Override
@@ -853,15 +389,6 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			return true;
 		case R.id.itemColorMode:
 			selectColorModel();
-			return true;
-			// Following sets one of the scaling options
-		case R.id.itemZoomable:
-		case R.id.itemOneToOne:
-		case R.id.itemFitToScreen:
-			AbstractScaling.getById(item.getItemId()).setScaleTypeForActivity(
-					this);
-			item.setChecked(true);
-			showPanningState();
 			return true;
 		case R.id.itemCenterMouse:
 			vncCanvas.warpMouse(vncCanvas.absoluteXPosition
@@ -917,8 +444,6 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			if (input != null) {
 				inputHandler = input;
 				connection.setInputMode(input.getName());
-				if (input.getName().equals(TOUCHPAD_MODE))
-					connection.setFollowMouse(true);
 				item.setChecked(true);
 				showPanningState();
 				connection.save(database.getWritableDatabase());
@@ -985,7 +510,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	/*
 	 * (non-Javadoc)
-	 * 
+	 *
 	 * @see android.app.Activity#onTrackballEvent(android.view.MotionEvent)
 	 */
 	@Override
@@ -1061,7 +586,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	/**
 	 * Pan based on touch motions
-	 * 
+	 *
 	 * @param event
 	 */
 	private boolean pan(MotionEvent event) {
@@ -1143,240 +668,22 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	}
 
-	/**
-	 * Touches and dpad (trackball) pan the screen
-	 * 
-	 * @author Michael A. MacDonald
-	 * 
-	 */
-	class PanMode implements AbstractInputHandler {
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onKeyDown(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyDown(int keyCode, KeyEvent evt) {
-			// DPAD KeyDown events are move MotionEvents in Panning Mode
-			final int dPos = 100;
-			boolean result = false;
-			switch (keyCode) {
-			case KeyEvent.KEYCODE_DPAD_CENTER:
-				result = true;
-				break;
-			case KeyEvent.KEYCODE_DPAD_LEFT:
-				onTouchEvent(MotionEvent
-						.obtain(1, System.currentTimeMillis(),
-								MotionEvent.ACTION_MOVE, panTouchX + dPos,
-								panTouchY, 0));
-				result = true;
-				break;
-			case KeyEvent.KEYCODE_DPAD_RIGHT:
-				onTouchEvent(MotionEvent
-						.obtain(1, System.currentTimeMillis(),
-								MotionEvent.ACTION_MOVE, panTouchX - dPos,
-								panTouchY, 0));
-				result = true;
-				break;
-			case KeyEvent.KEYCODE_DPAD_UP:
-				onTouchEvent(MotionEvent
-						.obtain(1, System.currentTimeMillis(),
-								MotionEvent.ACTION_MOVE, panTouchX, panTouchY
-										+ dPos, 0));
-				result = true;
-				break;
-			case KeyEvent.KEYCODE_DPAD_DOWN:
-				onTouchEvent(MotionEvent
-						.obtain(1, System.currentTimeMillis(),
-								MotionEvent.ACTION_MOVE, panTouchX, panTouchY
-										- dPos, 0));
-				result = true;
-				break;
-			default:
-				result = defaultKeyDownHandler(keyCode, evt);
-				break;
-			}
-			return result;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onKeyUp(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyUp(int keyCode, KeyEvent evt) {
-			// Ignore KeyUp events for DPAD keys in Panning Mode; trackball
-			// button switches to mouse mode
-			switch (keyCode) {
-			case KeyEvent.KEYCODE_DPAD_CENTER:
-				inputHandler = getInputHandlerById(R.id.itemInputMouse);
-				connection.setInputMode(inputHandler.getName());
-				connection.save(database.getWritableDatabase());
-				updateInputMenu();
-				showPanningState();
-				return true;
-			case KeyEvent.KEYCODE_DPAD_LEFT:
-				return true;
-			case KeyEvent.KEYCODE_DPAD_RIGHT:
-				return true;
-			case KeyEvent.KEYCODE_DPAD_UP:
-				return true;
-			case KeyEvent.KEYCODE_DPAD_DOWN:
-				return true;
-			}
-			return defaultKeyUpHandler(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTouchEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTouchEvent(MotionEvent event) {
-			return touchPan(event);
-		}
-
-		@Override
-		public boolean onGenericMotion(MotionEvent evt) {
-			return false;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTrackballEvent(MotionEvent evt) {
-			return false;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#handlerDescription()
-		 */
-		@Override
-		public CharSequence getHandlerDescription() {
-			return getResources().getText(R.string.input_mode_panning);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getName()
-		 */
-		@Override
-		public String getName() {
-			return "PAN_MODE";
-		}
-
-	}
-
-	/**
-	 * The touchscreen pans the screen; the trackball moves and clicks the
-	 * mouse.
-	 * 
-	 * @author Michael A. MacDonald
-	 * 
-	 */
-	public class TouchPanTrackballMouse implements AbstractInputHandler {
-		private DPadMouseKeyHandler keyHandler = new DPadMouseKeyHandler(VncCanvasActivity.this, vncCanvas.handler);
-		
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onKeyDown(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyDown(int keyCode, KeyEvent evt) {
-			return keyHandler.onKeyDown(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onKeyUp(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyUp(int keyCode, KeyEvent evt) {
-			return keyHandler.onKeyUp(keyCode, evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTouchEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTouchEvent(MotionEvent evt) {
-			return touchPan(evt);
-		}
-
-		@Override
-		public boolean onGenericMotion(MotionEvent evt) {
-			return false;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTrackballEvent(MotionEvent evt) {
-			return trackballMouse(evt);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#handlerDescription()
-		 */
-		@Override
-		public CharSequence getHandlerDescription() {
-			return getResources().getText(
-					R.string.input_mode_touchpad_pan_trackball_mouse);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getName()
-		 */
-		@Override
-		public String getName() {
-			return "TOUCH_PAN_TRACKBALL_MOUSE";
-		}
-
-	}
 
 	static final String FIT_SCREEN_NAME = "FIT_SCREEN";
-	/** Internal name for default input mode with Zoom scaling */
-	static final String TOUCH_ZOOM_MODE = "TOUCH_ZOOM_MODE";
-	
-	static final String TOUCHPAD_MODE = "TOUCHPAD_MODE";
 
 	/**
 	 * In fit-to-screen mode, no panning. Trackball and touchscreen work as
 	 * mouse.
-	 * 
+	 *
 	 * @author Michael A. MacDonald
-	 * 
+	 *
 	 */
 	public class FitToScreenMode implements AbstractInputHandler {
 		private DPadMouseKeyHandler keyHandler = new DPadMouseKeyHandler(VncCanvasActivity.this, vncCanvas.handler);
-		
+
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onKeyDown(int,
 		 *      android.view.KeyEvent)
 		 */
@@ -1387,7 +694,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onKeyUp(int,
 		 *      android.view.KeyEvent)
 		 */
@@ -1398,22 +705,37 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onTouchEvent(android.view.MotionEvent)
 		 */
 		@Override
-		public boolean onTouchEvent(MotionEvent evt) {
-			return false;
+		public boolean onTouchEvent(final MotionEvent event) {
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					vncCanvas.changeTouchCoordinatesToFitScreen(event);
+					boolean multitouch = event.getPointerCount() > 1;
+					vncCanvas.processPointerEvent(event ,event.getAction() == MotionEvent.ACTION_DOWN,multitouch);
+				}
+			}).start();
+
+			return VncCanvasActivity.super.onTouchEvent(event);
 		}
 
 		@Override
-		public boolean onGenericMotion(MotionEvent evt) {
-			return false;
+		public boolean onGenericMotion(final MotionEvent event) {
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					vncCanvas.changeTouchCoordinatesToFitScreen(event);
+					vncCanvas.processPointerEvent(event);
+				}
+			}).start();
+			return VncCanvasActivity.super.onGenericMotionEvent(event);
 		}
-
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
 		 */
 		@Override
@@ -1423,7 +745,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#handlerDescription()
 		 */
 		@Override
@@ -1433,7 +755,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#getName()
 		 */
 		@Override
@@ -1445,15 +767,15 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	/**
 	 * Touch screen controls, clicks the mouse.
-	 * 
+	 *
 	 * @author Michael A. MacDonald
-	 * 
+	 *
 	 */
 	class MouseMode implements AbstractInputHandler {
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onKeyDown(int,
 		 *      android.view.KeyEvent)
 		 */
@@ -1466,14 +788,14 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onKeyUp(int,
 		 *      android.view.KeyEvent)
 		 */
 		@Override
 		public boolean onKeyUp(int keyCode, KeyEvent evt) {
 			if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER) {
-				inputHandler = getInputHandlerById(R.id.itemInputPan);
+				inputHandler = getInputHandlerById(R.id.itemInputFitToScreen);
 				showPanningState();
 				connection.setInputMode(inputHandler.getName());
 				connection.save(database.getWritableDatabase());
@@ -1485,7 +807,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onTouchEvent(android.view.MotionEvent)
 		 */
 		@Override
@@ -1493,7 +815,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			// Mouse Pointer Control Mode
 			// Pointer event is absolute coordinates.
 
-			vncCanvas.changeTouchCoordinatesToFullFrame(event);
+			vncCanvas.changeTouchCoordinatesToFitScreen(event);
 			if (vncCanvas.processPointerEvent(event, true))
 				return true;
 			return VncCanvasActivity.super.onTouchEvent(event);
@@ -1506,7 +828,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
 		 */
 		@Override
@@ -1516,7 +838,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#handlerDescription()
 		 */
 		@Override
@@ -1526,7 +848,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		/*
 		 * (non-Javadoc)
-		 * 
+		 *
 		 * @see android.androidVNC.AbstractInputHandler#getName()
 		 */
 		@Override
@@ -1542,7 +864,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 	class HardwareMouseMode extends MouseMode {
 		@Override
 		public boolean onTouchEvent(MotionEvent event) {
-			vncCanvas.changeTouchCoordinatesToFullFrame(event);
+			vncCanvas.changeTouchCoordinatesToFitScreen(event);
 			if (vncCanvas.processPointerEvent(event))
 				return true;
 			return VncCanvasActivity.super.onTouchEvent(event);
@@ -1550,7 +872,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 		@Override
 		public boolean onGenericMotion(MotionEvent event) {
-			vncCanvas.changeTouchCoordinatesToFullFrame(event);
+			vncCanvas.changeTouchCoordinatesToFitScreen(event);
 			if (vncCanvas.processPointerEvent(event))
 				return true;
 			return VncCanvasActivity.super.onGenericMotionEvent(event);
@@ -1565,151 +887,5 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 		public String getName() {
 			return "HARDWARE_MOUSE";
 		}
-	}
-
-	/**
-	 * Touch screen controls, clicks the mouse. DPad pans the screen
-	 * 
-	 * @author Michael A. MacDonald
-	 * 
-	 */
-	class DPadPanTouchMouseMode implements AbstractInputHandler {
-
-		private boolean isPanning;
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onKeyDown(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyDown(int keyCode, KeyEvent evt) {
-			int xv = 0;
-			int yv = 0;
-			boolean result = true;
-			switch (keyCode) {
-			case KeyEvent.KEYCODE_DPAD_LEFT:
-				xv = -1;
-				break;
-			case KeyEvent.KEYCODE_DPAD_RIGHT:
-				xv = 1;
-				break;
-			case KeyEvent.KEYCODE_DPAD_UP:
-				yv = -1;
-				break;
-			case KeyEvent.KEYCODE_DPAD_DOWN:
-				yv = 1;
-				break;
-			default:
-				result = defaultKeyDownHandler(keyCode, evt);
-				break;
-			}
-			if ((xv != 0 || yv != 0) && !isPanning) {
-				final int x = xv;
-				final int y = yv;
-				isPanning = true;
-				panner.start(x, y, new Panner.VelocityUpdater() {
-
-					/*
-					 * (non-Javadoc)
-					 * 
-					 * @see android.androidVNC.Panner.VelocityUpdater#updateVelocity(android.graphics.Point,
-					 *      long)
-					 */
-					@Override
-					public boolean updateVelocity(PointF p, long interval) {
-						double scale = (2.0 * (double) interval / 50.0);
-						if (Math.abs(p.x) < 500)
-							p.x += (int) (scale * x);
-						if (Math.abs(p.y) < 500)
-							p.y += (int) (scale * y);
-						return true;
-					}
-
-				});
-				vncCanvas.pan(x, y);
-			}
-			return result;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onKeyUp(int,
-		 *      android.view.KeyEvent)
-		 */
-		@Override
-		public boolean onKeyUp(int keyCode, KeyEvent evt) {
-			boolean result = false;
-
-			switch (keyCode) {
-			case KeyEvent.KEYCODE_DPAD_LEFT:
-			case KeyEvent.KEYCODE_DPAD_RIGHT:
-			case KeyEvent.KEYCODE_DPAD_UP:
-			case KeyEvent.KEYCODE_DPAD_DOWN:
-				panner.stop();
-				isPanning = false;
-				result = true;
-				break;
-			default:
-				result = defaultKeyUpHandler(keyCode, evt);
-				break;
-			}
-			return result;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTouchEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTouchEvent(MotionEvent event) {
-			// Mouse Pointer Control Mode
-			// Pointer event is absolute coordinates.
-
-			vncCanvas.changeTouchCoordinatesToFullFrame(event);
-			if (vncCanvas.processPointerEvent(event, true))
-				return true;
-			return VncCanvasActivity.super.onTouchEvent(event);
-		}
-
-		@Override
-		public boolean onGenericMotion(MotionEvent evt) {
-			return false;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#onTrackballEvent(android.view.MotionEvent)
-		 */
-		@Override
-		public boolean onTrackballEvent(MotionEvent evt) {
-			return false;
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#handlerDescription()
-		 */
-		@Override
-		public CharSequence getHandlerDescription() {
-			return getResources().getText(
-					R.string.input_mode_dpad_pan_touchpad_mouse);
-		}
-
-		/*
-		 * (non-Javadoc)
-		 * 
-		 * @see android.androidVNC.AbstractInputHandler#getName()
-		 */
-		@Override
-		public String getName() {
-			return "DPAD_PAN_TOUCH_MOUSE";
-		}
-
 	}
 }

@@ -1183,7 +1183,6 @@ class RfbProto {
 	    if (pointerMask == 0) {
 	      writeModifierKeyEvents(0);
 	    }
-
 	    os.write(eventBuf, 0, eventBufLen);
   }
 

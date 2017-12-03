@@ -618,23 +618,29 @@ public class VncCanvas extends ImageView {
 			rfb.close();
 		}
 	}
-	
-	/**
-	 * Apply scroll offset and scaling to convert touch-space coordinates to the corresponding
-	 * point on the full frame.
-	 * @param e MotionEvent with the original, touch space coordinates.  This event is altered in place.
-	 * @return e -- The same event passed in, with the coordinates mapped
-	 */
-	MotionEvent changeTouchCoordinatesToFullFrame(MotionEvent e)
-	{
-		////Log.v(TAG, String.format("tap at %f,%f", e.getX(), e.getY()));
-		float scale = getScale();
-		
-		// Adjust coordinates for Android notification bar.
-		e.offsetLocation(0, -1f * getTop());
 
-		e.setLocation(absoluteXPosition + e.getX() / scale, absoluteYPosition + e.getY() / scale);
-		
+	MotionEvent changeTouchCoordinatesToFitScreen(MotionEvent e) {
+		////Log.v(TAG, String.format("tap at %f,%f", e.getX(), e.getY()));
+		int[] size = new int[]{rfb.framebufferWidth, rfb.framebufferHeight};
+		int[] mySize = new int[]{getWidth(), getHeight()};
+
+		float[] scales = new float[]{(float) mySize[0] / (float) size[0], (float) mySize[1] / (float) size[1]};
+
+		float scale = scales[0] < scales[1] ? scales[0] : scales[1];
+
+		float[] offset = new float[2];
+
+		if (scale == scales[0]) {
+			offset[1] = ((float) size[0] - (float) mySize[0]) / 2;
+		} else {
+			offset[0] = ((float) size[1] - (float) mySize[1]) / 2;
+		}
+
+		float[] touchPos = new float[]{(e.getX() - offset[0]) / scale, (e.getY() - offset[0]) / scale};
+
+
+		e.setLocation(touchPos[0], touchPos[1]);
+
 		return e;
 	}
 
