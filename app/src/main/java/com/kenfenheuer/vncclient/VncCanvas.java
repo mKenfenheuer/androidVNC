@@ -630,13 +630,12 @@ public class VncCanvas extends ImageView {
 
 		float[] offset = new float[2];
 
-		if (scale == scales[0]) {
-			offset[1] = ((float) size[0] - (float) mySize[0]) / 2;
-		} else {
-			offset[0] = ((float) size[1] - (float) mySize[1]) / 2;
-		}
 
-		float[] touchPos = new float[]{(e.getX() - offset[0]) / scale, (e.getY() - offset[0]) / scale};
+		offset[0] = (((float) size[0] * scale) - (float) mySize[0]) / 2;
+		offset[1] = (((float) size[1] * scale) - (float) mySize[1]) / 2;
+
+
+		float[] touchPos = new float[]{(e.getX() + offset[0]) / scale, (e.getY() + offset[1]) / scale};
 
 
 		e.setLocation(touchPos[0], touchPos[1]);
@@ -1297,7 +1296,7 @@ public class VncCanvas extends ImageView {
 		return processPointerEvent((int)evt.getX(), (int)evt.getY(), evt.getMetaState());
 	}
 
-	boolean processPointerEvent(int x, int y, int action, int modifiers, boolean mouseIsDown, boolean useRightButton) {
+	public boolean processPointerEvent(int x, int y, int action, int modifiers, boolean mouseIsDown, boolean useRightButton) {
 		if (action == MotionEvent.ACTION_DOWN || (mouseIsDown && action == MotionEvent.ACTION_MOVE)) {
 			if (useRightButton) {
 				pointerMask = MOUSE_BUTTON_RIGHT;

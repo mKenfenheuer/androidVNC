@@ -37,6 +37,7 @@ import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PointF;
 import android.net.Uri;
+import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Log;
@@ -492,6 +493,10 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 		if (keyCode == KeyEvent.KEYCODE_MENU)
 			return super.onKeyDown(keyCode, evt);
 
+		if(keyCode == KeyEvent.KEYCODE_BACK) {
+            ((FitToScreenMode) inputHandler).nextRight = true;
+		}
+
 		return inputHandler.onKeyDown(keyCode, evt);
 	}
 
@@ -681,6 +686,14 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 	public class FitToScreenMode implements AbstractInputHandler {
 		private DPadMouseKeyHandler keyHandler = new DPadMouseKeyHandler(VncCanvasActivity.this, vncCanvas.handler);
 
+		private float[] mousePos = new float[2];
+        public boolean nextRight = false;
+        private float[] touchBeginPos = new float[2];
+        private float[] lastTouchPos = new float[2];
+
+		private long touchBeginTime = 0;
+
+
 		/*
 		 * (non-Javadoc)
 		 *
@@ -710,29 +723,106 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 		 */
 		@Override
 		public boolean onTouchEvent(final MotionEvent event) {
-			new Thread(new Runnable() {
-				@Override
-				public void run() {
-					vncCanvas.changeTouchCoordinatesToFitScreen(event);
-					boolean multitouch = event.getPointerCount() > 1;
-					vncCanvas.processPointerEvent(event ,event.getAction() == MotionEvent.ACTION_DOWN,multitouch);
-				}
-			}).start();
 
-			return VncCanvasActivity.super.onTouchEvent(event);
-		}
+            vncCanvas.changeTouchCoordinatesToFitScreen(event);
+
+            if(event.getToolType(0) == MotionEvent.TOOL_TYPE_FINGER) {
+                float[] currentPos = new float[]{event.getX(), event.getY()};
+
+
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    touchBeginPos = currentPos;
+                    lastTouchPos = currentPos;
+                    touchBeginTime = System.currentTimeMillis();
+                    Log.v(TAG, "Touch down at " + mousePos[0] + ":" + mousePos[1]);
+                } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (System.currentTimeMillis() - touchBeginTime < 100) {
+                        event.setLocation(mousePos[0], mousePos[1]);
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                event.setAction(MotionEvent.ACTION_DOWN);
+                                vncCanvas.processPointerEvent(event, true, nextRight);
+                                SystemClock.sleep(50);
+                                event.setAction(MotionEvent.ACTION_UP);
+                                vncCanvas.processPointerEvent(event, false, nextRight);
+                                nextRight = false;
+                            }
+                        }).start();
+                        Log.v(TAG, "Click at " + mousePos[0] + ":" + mousePos[1]);
+                    }
+                }
+
+                float[] movement = new float[]{currentPos[0] - lastTouchPos[0], currentPos[1] - lastTouchPos[1]};
+
+                Log.v(TAG, "Mouse movement " + movement[0] + ":" + movement[1]);
+                mousePos = new float[]{mousePos[0] + movement[0], mousePos[1] + movement[1]};
+                event.setLocation(mousePos[0], mousePos[1]);
+                event.setAction(MotionEvent.ACTION_HOVER_MOVE);
+                if (movement[0] < 400 || movement[1] < 400) {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            vncCanvas.processPointerEvent(event);
+                        }
+                    }).start();
+                } else {
+                    Log.v(TAG, "Ignoring mouse movement ");
+                }
+                lastTouchPos = currentPos;
+            }
+            else if(event.getAction() == MotionEvent.ACTION_MOVE)
+            {
+                mousePos = new float[]{event.getX(), event.getY()};
+                Log.v(TAG, "Generic mouse movement to " + mousePos[0] + ":" + mousePos[1]);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        vncCanvas.processPointerEvent(event);
+                    }
+                }).start();
+            }
+            return VncCanvasActivity.super.onTouchEvent(event);
+        }
 
 		@Override
 		public boolean onGenericMotion(final MotionEvent event) {
-			new Thread(new Runnable() {
-				@Override
-				public void run() {
-					vncCanvas.changeTouchCoordinatesToFitScreen(event);
-					vncCanvas.processPointerEvent(event);
-				}
-			}).start();
-			return VncCanvasActivity.super.onGenericMotionEvent(event);
-		}
+            if (event.getAction() == MotionEvent.ACTION_HOVER_MOVE) {
+                vncCanvas.changeTouchCoordinatesToFitScreen(event);
+                mousePos = new float[]{event.getX(), event.getY()};
+                Log.v(TAG, "Generic mouse movement to " + mousePos[0] + ":" + mousePos[1]);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        vncCanvas.processPointerEvent(event);
+                    }
+                }).start();
+            } else if (event.getAction() == MotionEvent.ACTION_BUTTON_RELEASE){
+                event.setLocation(mousePos[0], mousePos[1]);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        SystemClock.sleep(50);
+                        vncCanvas.processPointerEvent(event);
+                    }
+                }).start();
+            } else if (event.getAction() == MotionEvent.ACTION_BUTTON_PRESS){
+                event.setLocation(mousePos[0], mousePos[1]);
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        vncCanvas.processPointerEvent(event);
+                    }
+                }).start();
+            } else  if (event.getAction() == MotionEvent.ACTION_HOVER_ENTER){
+
+            } else  if (event.getAction() == MotionEvent.ACTION_HOVER_EXIT){
+
+            } else {
+                Log.d(TAG, "Unexpected  MotionEvnet action");
+            }
+            return VncCanvasActivity.super.onGenericMotionEvent(event);
+        }
 		/*
 		 * (non-Javadoc)
 		 *
