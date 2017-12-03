@@ -11,39 +11,13 @@ import android.widget.ImageView;
  * A scaling mode for the VncCanvas; based on ImageView.ScaleType
  */
 abstract class AbstractScaling {
-	private static final int scaleModeIds[] = { R.id.itemFitToScreen, R.id.itemOneToOne, R.id.itemZoomable };
+	private static final int scaleModeIds[] = { 1 };
 	
 	private static AbstractScaling[] scalings;
 
 	static AbstractScaling getById(int id)
 	{
-		if ( scalings==null)
-		{
-			scalings=new AbstractScaling[scaleModeIds.length];
-		}
-		for ( int i=0; i<scaleModeIds.length; ++i)
-		{
-			if ( scaleModeIds[i]==id)
-			{
-				if ( scalings[i]==null)
-				{
-					switch ( id )
-					{
-					case R.id.itemFitToScreen :
-						scalings[i]=new FitToScreenScaling();
-						break;
-					case R.id.itemOneToOne :
-						scalings[i]=new OneToOneScaling();
-						break;
-					case R.id.itemZoomable :
-						scalings[i]=new ZoomScaling();
-						break;
-					}
-				}
-				return scalings[i];
-			}
-		}
-		throw new IllegalArgumentException("Unknown scaling id " + id);
+		return new FitToScreenScaling();
 	}
 	
 	float getScale() { return 1; }

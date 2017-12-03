@@ -26,6 +26,7 @@ import java.net.*;
 import javax.net.ssl.*;
 
 import android.os.Message;
+import android.os.SystemClock;
 import android.util.Base64;
 import android.util.Log;
 
@@ -114,9 +115,7 @@ public class X509Tunnel extends TLSTunnelBase {
               synchronized (canvas) {
                   // Block indefinitely until the x509 cert is accepted.
                   while (!canvas.isCertificateAccepted()) {
-                      try {
-                          canvas.wait();
-                      } catch (InterruptedException e1) { e1.printStackTrace(); }
+                          SystemClock.sleep(700);
                   }
               }
               // We have exited the loop, thus the certificate was accepted.

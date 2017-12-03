@@ -1424,29 +1424,31 @@ public class VncCanvas extends ImageView {
 		maintainConnection = false;
 	}
 	
-	void sendMetaKey(MetaKeyBean meta)
-	{
-		if (meta.isMouseClick())
-		{
-			try {
-				rfb.writePointerEvent(mouseX, mouseY, meta.getMetaFlags(), meta.getMouseButtons());
-				rfb.writePointerEvent(mouseX, mouseY, meta.getMetaFlags(), 0);
+	void sendMetaKey(final MetaKeyBean meta) {
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				if (meta.isMouseClick()) {
+					try {
+						rfb.writePointerEvent(mouseX, mouseY, meta.getMetaFlags(), meta.getMouseButtons());
+						rfb.writePointerEvent(mouseX, mouseY, meta.getMetaFlags(), 0);
+					} catch (IOException ioe) {
+						ioe.printStackTrace();
+					}
+				} else {
+
+
+					try {
+						rfb.writeKeyEvent(meta.getKeySym(), meta.getMetaFlags(), true);
+						rfb.writeKeyEvent(meta.getKeySym(), meta.getMetaFlags(), false);
+					} catch (IOException ioe) {
+						ioe.printStackTrace();
+					}
+
+
+				}
 			}
-			catch (IOException ioe)
-			{
-				ioe.printStackTrace();
-			}
-		}
-		else {
-			try {
-				rfb.writeKeyEvent(meta.getKeySym(), meta.getMetaFlags(), true);
-				rfb.writeKeyEvent(meta.getKeySym(), meta.getMetaFlags(), false);
-			}
-			catch (IOException ioe)
-			{
-				ioe.printStackTrace();
-			}
-		}
+		}).start();
 	}
 	
 	float getScale()

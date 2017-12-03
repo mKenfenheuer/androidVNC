@@ -137,8 +137,8 @@ public class androidVNC extends Activity {
         Log.d("IntentAction: ", action);
         Boolean actionID;
 
-        if(action.equals("android.intent.action.MAIN")){
-            actionID=myIntent.getBooleanExtra("com.offsec.nhvnc.EXTRA_CONN_DATA", false);
+        if(action.equals("android.intent.action.MAIN") || action.equals("com.kenfenheuer.vncclient.STARTVNC")){
+            actionID=myIntent.getBooleanExtra("com.kenfenheuer.vncclient.EXTRA_CONN_DATA", false);
             if(actionID){
 				fromIntent=true;
                // Log.d("EXTRA_CONN_DATA: ", actionID.toString());
