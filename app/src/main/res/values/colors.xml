@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="btn_active_backround">#acacac</color>
+    <color name="colorAccent">#FF9422</color>
+</resources>

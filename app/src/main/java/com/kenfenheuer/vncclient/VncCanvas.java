@@ -57,7 +57,6 @@ import android.widget.Toast;
 
 import com.antlersoft.android.bc.BCFactory;
 
-import com.google.android.gms.security.ProviderInstaller;
 import com.sun.jna.examples.unix.X11KeySymDef;
 import com.sun.jna.examples.unix.XF86KeySymDef;
 
@@ -143,11 +142,6 @@ public class VncCanvas extends ImageView {
 	public VncCanvas(final Context context, AttributeSet attrs)
 	{
 		super(context, attrs);
-		try {
-			ProviderInstaller.installIfNeeded(context);
-		}catch (Exception ex)
-		{}
-
 		scrollRunnable = new MouseScrollRunnable();
 		handleRREPaint = new Paint();
 		handleRREPaint.setStyle(Style.FILL);
@@ -197,7 +191,7 @@ public class VncCanvas extends ImageView {
 			byte[] certBytes = cert.getEncoded();
 			String certIdHash = SecureTunnel.computeSignatureByAlgorithm(certBytes);
 			String certInfo =
-					String.format(Locale.US, "Do you want to connect to the host identified by the following certificate?\\n\\nFingerprint: %1$s\\n\\nIssued to:\\n%2$s\\n\\nIssued by:\\n%3$s\\n\\nValid from:\\n%4$s\\n\\nValid until:\\n%5$s\\n\\nNote: bVNC does not verify certificate authorities or check for certificate revocation.",
+					String.format(Locale.US, "Do you want to connect to the host identified by the following certificate?\n\nFingerprint: %1$s\n\nIssued to:\n%2$s\n\nIssued by:\n%3$s\n\nValid from:\n%4$s\n\nValid until:\n%5$s\n\nNote: This client does not verify certificate authorities or check for certificate revocation.",
 							certIdHash,
 							cert.getSubjectX500Principal().getName(),
 							cert.getIssuerX500Principal().getName(),

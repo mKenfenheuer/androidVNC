@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.antlersoft.android.bc.BCFactory;
-import com.antlersoft.android.zoomer.*;
 
 import android.app.Activity;
 import android.app.Dialog;
@@ -36,6 +35,7 @@ import android.content.DialogInterface.OnDismissListener;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PointF;
+import android.media.Image;
 import android.net.Uri;
 import android.nfc.Tag;
 import android.os.Bundle;
@@ -50,6 +50,8 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemClickListener;
@@ -78,8 +80,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			R.id.itemInputFitToScreen,
 			R.id.itemInputMouse,
 			R.id.itemInputHardwareMouse,};
-
-	ZoomControls zoomer;
+	private boolean kbdVisible = false;
 	Panner panner;
 
 	@Override
@@ -101,74 +102,62 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			// has made this parsing of host necessary
 			int index = host.indexOf(':');
 			int port;
-			if (index != -1)
-			{
-				try
-				{
+			if (index != -1) {
+				try {
 					port = Integer.parseInt(host.substring(index + 1));
-				}
-				catch (NumberFormatException nfe)
-				{
+				} catch (NumberFormatException nfe) {
 					port = 0;
 				}
-				host = host.substring(0,index);
-			}
-			else
-			{
+				host = host.substring(0, index);
+			} else {
 				port = data.getPort();
 			}
-			if (host.equals(VncConstants.CONNECTION))
-			{
-				if (connection.Gen_read(database.getReadableDatabase(), port))
-				{
+			if (host.equals(VncConstants.CONNECTION)) {
+				if (connection.Gen_read(database.getReadableDatabase(), port)) {
 					MostRecentBean bean = androidVNC.getMostRecent(database.getReadableDatabase());
-					if (bean != null)
-					{
+					if (bean != null) {
 						bean.setConnectionId(connection.get_Id());
 						bean.Gen_update(database.getWritableDatabase());
 					}
 				}
-			}
-			else
-			{
-			    connection.setAddress(host);
-			    connection.setNickname(connection.getAddress());
-			    connection.setPort(port);
-			    List<String> path = data.getPathSegments();
-			    if (path.size() >= 1) {
-			        connection.setColorModel(path.get(0));
-			    }
-			    if (path.size() >= 2) {
-			        connection.setPassword(path.get(1));
-			    }
-			    connection.save(database.getWritableDatabase());
+			} else {
+				connection.setAddress(host);
+				connection.setNickname(connection.getAddress());
+				connection.setPort(port);
+				List<String> path = data.getPathSegments();
+				if (path.size() >= 1) {
+					connection.setColorModel(path.get(0));
+				}
+				if (path.size() >= 2) {
+					connection.setPassword(path.get(1));
+				}
+				connection.save(database.getWritableDatabase());
 			}
 		} else {
 
-		    Bundle extras = i.getExtras();
+			Bundle extras = i.getExtras();
 
-		    if (extras != null) {
-		  	    connection.Gen_populate((ContentValues) extras
+			if (extras != null) {
+				connection.Gen_populate((ContentValues) extras
 						.getParcelable(VncConstants.CONNECTION));
-		    }
-		    if (connection.getPort() == 0)
-			    connection.setPort(5900);
+			}
+			if (connection.getPort() == 0)
+				connection.setPort(5900);
 
-            // Parse a HOST:PORT entry
-		    String host = connection.getAddress();
-		    if (host.indexOf(':') > -1) {
-			    String p = host.substring(host.indexOf(':') + 1);
-			    try {
-				    connection.setPort(Integer.parseInt(p));
-			    } catch (Exception e) {
-			    }
-			    connection.setAddress(host.substring(0, host.indexOf(':')));
-	  	    }
+			// Parse a HOST:PORT entry
+			String host = connection.getAddress();
+			if (host.indexOf(':') > -1) {
+				String p = host.substring(host.indexOf(':') + 1);
+				try {
+					connection.setPort(Integer.parseInt(p));
+				} catch (Exception e) {
+				}
+				connection.setAddress(host.substring(0, host.indexOf(':')));
+			}
 		}
 		setContentView(R.layout.canvas);
 
 		vncCanvas = (VncCanvas) findViewById(R.id.vnc_canvas);
-		zoomer = (ZoomControls) findViewById(R.id.zoomer);
 
 		vncCanvas.initializeVncCanvas(connection, new Runnable() {
 			public void run() {
@@ -176,57 +165,70 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			}
 		});
 		vncCanvas.setOnGenericMotionListener(this);
-		zoomer.hide();
-		zoomer.setOnZoomInClickListener(new View.OnClickListener() {
-
-			/*
-			 * (non-Javadoc)
-			 *
-			 * @see android.view.View.OnClickListener#onClick(android.view.View)
-			 */
-			@Override
-			public void onClick(View v) {
-				showZoomer(true);
-				vncCanvas.scaling.zoomIn(VncCanvasActivity.this);
-
-			}
-
-		});
-		zoomer.setOnZoomOutClickListener(new View.OnClickListener() {
-
-			/*
-			 * (non-Javadoc)
-			 *
-			 * @see android.view.View.OnClickListener#onClick(android.view.View)
-			 */
-			@Override
-			public void onClick(View v) {
-				showZoomer(true);
-				vncCanvas.scaling.zoomOut(VncCanvasActivity.this);
-
-			}
-
-		});
-		zoomer.setOnZoomKeyboardClickListener(new View.OnClickListener() {
-
-			/*
-			 * (non-Javadoc)
-			 *
-			 * @see android.view.View.OnClickListener#onClick(android.view.View)
-			 */
-			@Override
-			public void onClick(View v) {
-              InputMethodManager inputMgr = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
-				inputMgr.toggleSoftInput(0, 0);
-			}
-
-		});
 		panner = new Panner(this, vncCanvas.handler);
 
 		AbstractScaling.getById(1).setScaleTypeForActivity(
 				this);
 
 		inputHandler = getInputHandlerById(R.id.itemInputFitToScreen);
+
+
+
+
+		Button btnEsc = findViewById(R.id.btnEsc);
+		btnEsc.setBackgroundResource(0);
+		Button btnTab = findViewById(R.id.btnTab);
+		btnTab.setBackgroundResource(0);
+		Button btnCtrl = findViewById(R.id.btnCtrl);
+		btnCtrl.setBackgroundResource(0);
+		Button btnAlt = findViewById(R.id.btnAlt);
+		btnAlt.setBackgroundResource(0);
+		Button btnDel = findViewById(R.id.btnDel);
+		btnDel.setBackgroundResource(0);
+		Button btnMenu = findViewById(R.id.btnMenu);
+		btnMenu.setBackgroundResource(0);
+		Button btnDrag = findViewById(R.id.btnDrag);
+		btnDrag.setBackgroundResource(0);
+		ImageButton btnKbd = findViewById(R.id.btnKbd);
+
+		View.OnClickListener buttonBarClickListener = new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if(v.getBackground() == null)
+				{
+					v.setBackgroundResource(R.drawable.btn_active_background);
+				}
+				else
+				{
+					v.setBackgroundResource(0);
+				}
+			}
+		};
+
+		btnEsc.setOnClickListener(buttonBarClickListener);
+		btnTab.setOnClickListener(buttonBarClickListener);
+		btnCtrl.setOnClickListener(buttonBarClickListener);
+		btnAlt.setOnClickListener(buttonBarClickListener);
+		btnDel.setOnClickListener(buttonBarClickListener);
+		btnDrag.setOnClickListener(buttonBarClickListener);
+		btnMenu.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+
+			}
+		});
+		btnKbd.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				kbdVisible = true;
+				InputMethodManager inputMethodManager =
+						(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+				inputMethodManager.toggleSoftInputFromWindow(
+						vncCanvas.getApplicationWindowToken(),
+						InputMethodManager.SHOW_FORCED, 0);
+			}
+		});
+
 	}
 
 	/**
@@ -494,7 +496,12 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			return super.onKeyDown(keyCode, evt);
 
 		if(keyCode == KeyEvent.KEYCODE_BACK) {
-            ((FitToScreenMode) inputHandler).nextRight = true;
+			if(!kbdVisible)
+            	((FitToScreenMode) inputHandler).nextRight = true;
+			else{
+				InputMethodManager imm = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+				imm.hideSoftInputFromWindow(vncCanvas.getApplicationWindowToken(), 0);
+			}
 		}
 
 		return inputHandler.onKeyDown(keyCode, evt);
@@ -509,8 +516,6 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 	}
 
 	public void showPanningState() {
-		Toast.makeText(this, inputHandler.getHandlerDescription(),
-				Toast.LENGTH_SHORT).show();
 	}
 
 	/*
@@ -650,29 +655,6 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 		}
 		return VncCanvasActivity.super.onTouchEvent(evt);
 	}
-
-	long hideZoomAfterMs;
-	static final long ZOOM_HIDE_DELAY_MS = 2500;
-	HideZoomRunnable hideZoomInstance = new HideZoomRunnable();
-
-	private void showZoomer(boolean force) {
-		if (force || zoomer.getVisibility() != View.VISIBLE) {
-			zoomer.show();
-			hideZoomAfterMs = SystemClock.uptimeMillis() + ZOOM_HIDE_DELAY_MS;
-			vncCanvas.handler
-					.postAtTime(hideZoomInstance, hideZoomAfterMs + 10);
-		}
-	}
-
-	private class HideZoomRunnable implements Runnable {
-		public void run() {
-			if (SystemClock.uptimeMillis() >= hideZoomAfterMs) {
-				zoomer.hide();
-			}
-		}
-
-	}
-
 
 	static final String FIT_SCREEN_NAME = "FIT_SCREEN";
 
