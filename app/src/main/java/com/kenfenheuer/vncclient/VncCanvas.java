@@ -1170,6 +1170,30 @@ public class VncCanvas extends ImageView {
 			reDraw();
 	}
 
+	public boolean sendKey(int keyCode, boolean down)
+	{
+		if (rfb != null && rfb.inNormalProtocol) {
+
+			int key = convertKeyCode(keyCode);
+			try {
+				if (afterMenu)
+				{
+					afterMenu = false;
+					if (!down && key != lastKeyDown)
+						return true;
+				}
+				if (down)
+					lastKeyDown = key;
+				Log.i(TAG,"key = " + key + " metastate = " + 0 + " keycode = " + keyCode + " down = " + down);
+				rfb.writeKeyEvent(key, 0, down);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			return true;
+		}
+		return false;
+	}
+
 	private Runnable reDraw = new Runnable() {
 		public void run() {
 			if (showDesktopInfo) {
@@ -1422,7 +1446,7 @@ public class VncCanvas extends ImageView {
 	public void closeConnection() {
 		maintainConnection = false;
 	}
-	
+
 	void sendMetaKey(final MetaKeyBean meta) {
 		new Thread(new Runnable() {
 			@Override
@@ -1445,6 +1469,19 @@ public class VncCanvas extends ImageView {
 					}
 
 
+				}
+			}
+		}).start();
+	}
+
+	void sendMetaKey(final MetaKeyBean meta, final boolean down) {
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					rfb.writeKeyEvent(meta.getKeySym(), meta.getMetaFlags(), down);
+				} catch (IOException ioe) {
+					ioe.printStackTrace();
 				}
 			}
 		}).start();

@@ -13,7 +13,7 @@
 				<category android:name="android.intent.category.DEFAULT"/>
 			</intent-filter>
 		</activity>
-		<activity android:screenOrientation="sensorLandscape" android:configChanges="orientation|keyboardHidden" android:name="com.kenfenheuer.vncclient.VncCanvasActivity">
+		<activity android:screenOrientation="sensorLandscape" android:configChanges="orientation|keyboardHidden" android:name="com.kenfenheuer.vncclient.VncCanvasActivity" android:windowSoftInputMode="adjustResize">
 			<intent-filter>
 				<action android:name="android.intent.action.VIEW"/>
 			</intent-filter>

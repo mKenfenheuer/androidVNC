@@ -35,6 +35,7 @@ import android.content.DialogInterface.OnDismissListener;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.media.Image;
 import android.net.Uri;
 import android.nfc.Tag;
@@ -82,6 +83,8 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 			R.id.itemInputHardwareMouse,};
 	private boolean kbdVisible = false;
 	Panner panner;
+	private boolean drag;
+	private MotionEvent lastMotionEvent;
 
 	@Override
 	public void onCreate(Bundle icicle) {
@@ -197,34 +200,103 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 				if(v.getBackground() == null)
 				{
 					v.setBackgroundResource(R.drawable.btn_active_background);
+					switch (v.getId())
+					{
+						case R.id.btnAlt:
+							vncCanvas.sendKey(KeyEvent.KEYCODE_ALT_LEFT,true);
+							break;
+						case R.id.btnCtrl:
+							vncCanvas.sendKey(KeyEvent.KEYCODE_CTRL_LEFT,true);
+							break;
+						case R.id.btnDrag:
+							new Thread(new Runnable() {
+								@Override
+								public void run() {
+									if(lastMotionEvent != null) {
+										lastMotionEvent.setLocation(((FitToScreenMode)inputHandler).mousePos[0],((FitToScreenMode)inputHandler).mousePos[1]);
+										lastMotionEvent.setAction(MotionEvent.ACTION_DOWN);
+										vncCanvas.processPointerEvent(lastMotionEvent, true);
+									}
+								}
+							}).start();
+							drag = true;
+							break;
+					}
 				}
 				else
 				{
 					v.setBackgroundResource(0);
+					switch (v.getId())
+					{
+						case R.id.btnAlt:
+							vncCanvas.sendKey(KeyEvent.KEYCODE_ALT_LEFT,false);
+							break;
+						case R.id.btnCtrl:
+							vncCanvas.sendKey(KeyEvent.KEYCODE_CTRL_LEFT,false);
+							break;
+						case R.id.btnDrag:
+							new Thread(new Runnable() {
+								@Override
+								public void run() {
+									if(lastMotionEvent != null) {
+										lastMotionEvent.setLocation(((FitToScreenMode)inputHandler).mousePos[0],((FitToScreenMode)inputHandler).mousePos[1]);
+										lastMotionEvent.setAction(MotionEvent.ACTION_UP);
+										vncCanvas.processPointerEvent(lastMotionEvent, false);
+									}
+								}
+							}).start();
+							drag = false;
+							break;
+					}
 				}
 			}
 		};
 
-		btnEsc.setOnClickListener(buttonBarClickListener);
-		btnTab.setOnClickListener(buttonBarClickListener);
 		btnCtrl.setOnClickListener(buttonBarClickListener);
 		btnAlt.setOnClickListener(buttonBarClickListener);
-		btnDel.setOnClickListener(buttonBarClickListener);
+
+		btnEsc.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View view) {
+				vncCanvas.sendKey(KeyEvent.KEYCODE_ESCAPE,true);
+				vncCanvas.sendKey(KeyEvent.KEYCODE_ESCAPE,false);
+			}
+		});
+		btnDel.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View view) {
+				vncCanvas.sendKey(KeyEvent.KEYCODE_FORWARD_DEL,true);
+				vncCanvas.sendKey(KeyEvent.KEYCODE_FORWARD_DEL,false);
+			}
+		});
+
 		btnDrag.setOnClickListener(buttonBarClickListener);
+
 		btnMenu.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 
 			}
 		});
+
+		btnTab.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View view) {
+				vncCanvas.sendKey(KeyEvent.KEYCODE_TAB,true);
+				vncCanvas.sendKey(KeyEvent.KEYCODE_TAB,false);
+
+			}
+		});
+
 		btnKbd.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				kbdVisible = true;
 				InputMethodManager inputMethodManager =
 						(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+				getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 				inputMethodManager.toggleSoftInputFromWindow(
-						vncCanvas.getApplicationWindowToken(),
+						vncCanvas.getWindowToken(),
 						InputMethodManager.SHOW_FORCED, 0);
 			}
 		});
@@ -538,7 +610,16 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
-		return inputHandler.onTouchEvent(event);
+
+		Rect vncRect = new Rect();
+		vncCanvas.getHitRect(vncRect);
+
+		if (vncRect.contains((int)event.getX(), (int)event.getY())) {
+			lastMotionEvent = event;
+			return inputHandler.onTouchEvent(event);
+		}
+		return  super.onTouchEvent(event);
+
 	}
 
 	@Override
@@ -717,7 +798,7 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
                     lastTouchPos = currentPos;
                     touchBeginTime = System.currentTimeMillis();
                     Log.v(TAG, "Touch down at " + mousePos[0] + ":" + mousePos[1]);
-                } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                } else if (event.getAction() == MotionEvent.ACTION_UP && ! drag) {
                     if (System.currentTimeMillis() - touchBeginTime < 100) {
                         event.setLocation(mousePos[0], mousePos[1]);
                         new Thread(new Runnable() {
@@ -741,11 +822,13 @@ public class VncCanvasActivity extends Activity implements View.OnGenericMotionL
                 mousePos = new float[]{mousePos[0] + movement[0], mousePos[1] + movement[1]};
                 event.setLocation(mousePos[0], mousePos[1]);
                 event.setAction(MotionEvent.ACTION_HOVER_MOVE);
+                if(drag)
+					event.setAction(MotionEvent.ACTION_DOWN);
                 if (movement[0] < 400 || movement[1] < 400) {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            vncCanvas.processPointerEvent(event);
+                            vncCanvas.processPointerEvent(event,drag);
                         }
                     }).start();
                 } else {
